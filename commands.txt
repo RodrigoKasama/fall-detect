@@ -1,0 +1,8 @@
+python3 -m venv nome_env
+nome_env/python3 = newPython3
+
+newPython3 training_data_generator.py chest
+newPython3 training_data_generator.py right
+newPython3 training_data_generator.py left
+
+newPython3 run_of_the_neural_network_model.py --scenario Sc1_acc_T --position chest --label_type binary_one --neural_network_type CNN1D

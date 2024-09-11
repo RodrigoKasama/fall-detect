@@ -1,0 +1,5 @@
+fall_detect_env/
+builders/__pycache__/
+Dockerfile
+database/
+labels_and_data/
