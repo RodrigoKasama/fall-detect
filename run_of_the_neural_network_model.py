@@ -48,12 +48,18 @@ def parse_input():
     return args.position, args.label_type, args.scenario, args.neural_network_type
 
 
-label_options = {
+label_filename = {
     "multiple_one": "multiple_class_label_1.npy",
-    "multiple_two": "multiple_class_label_2.npy",
     "binary_one": "binary_class_label_1.npy",
+    "multiple_two": "multiple_class_label_2.npy",
     "binary_two": "binary_class_label_2.npy"
 }
+
+labels = {"multiple_one": 37, "multiple_two": 26,
+          "binary_one": 2, "binary_two": 2
+          }
+
+array_sizes = {"chest": 1020, "right": 450, "left": 450}
 
 current_directory = os.path.dirname(__file__)
 
@@ -61,16 +67,15 @@ current_directory = os.path.dirname(__file__)
 position, label_type, scenario, neural_network_type = parse_input()
 # ------------------------------------------------------------------------------------------
 
-number_of_labels = 37 if label_type == "multiple_one" else 26 if label_type == "multiple_two" else 2
-array_size = 1020 if position == "chest" else 450
+num_labels, array_size = labels.get(label_type), array_sizes.get(position)
 
 # Diretório de dados
 data_path = os.path.join(current_directory, "labels_and_data", "data", position)
 
-# Diretório de rotulos ?
+# Diretório de rotulos - Targets?
 label_path = os.path.join(current_directory, "labels_and_data", "labels", position)
 
-
+# Muito confuso isso...
 neural_network_scenarios = {
     # for Sc1_CNN1D_acc_T and Sc1_MLP_acc_T
     "Sc1_acc_T": [os.path.join(data_path, "magacc_time_domain_data_array.npy"), (array_size, 1)],
@@ -105,30 +110,32 @@ data = neural_network_scenarios[scenario]
 
 input_shape = data[1] if neural_network_type == "CNN1D" else array_size
 
-labels = os.path.join(label_path, label_options.get(label_type))
+labels = os.path.join(label_path, label_filename.get(label_type))
 
 #
 X_train, X_test, y_train, y_test, X_val, y_val = generate_training_testing_and_validation_sets(data[0], labels)
+
+
 
 output_dir = os.path.join(current_directory, "output")
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-
-neural_network_results_dir = os.path.join(output_dir, neural_network_type, f"{position}") if neural_network_type == "CNN1D" else os.path.join(output_dir, neural_network_type)
-
+neural_network_results_dir = os.path.join(
+    output_dir, neural_network_type, f"{position}") if neural_network_type == "CNN1D" else os.path.join(output_dir, neural_network_type)
 
 if not os.path.exists(neural_network_results_dir):
     os.makedirs(neural_network_results_dir)
 
-scenario_dir = os.path.join(os.path.join(neural_network_results_dir, scenario, label_type))
+scenario_dir = os.path.join(neural_network_results_dir, scenario, label_type)
 if not os.path.exists(scenario_dir):
     os.makedirs(scenario_dir)
 
 print("\nStarting Optimization\n")
 
 # Estudar
-best_trial, best_params = create_study_object(objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, scenario_dir, number_of_labels)
+best_trial, best_params = create_study_object(
+    objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, scenario_dir, num_labels)
 
 csv_file_path = os.path.join(scenario_dir, "best_trial.csv")
 save_best_trial_to_csv(best_trial, best_params, csv_file_path)
@@ -161,11 +168,12 @@ for i in range(1, 21):
             best_params["dense_neurons"],
             best_params["dropout"],
             best_params["learning_rate"],
-            number_of_labels)
+            num_labels)
 
         decision_threshold = best_params["decision_threshold"]
 
-        save_results(model, historic, X_test, y_test, number_of_labels, i, decision_threshold, mlp_output_dir, neural_network_type)
+        save_results(model, historic, X_test, y_test, num_labels,
+                     i, decision_threshold, mlp_output_dir, neural_network_type)
 
     elif neural_network_type == "MLP":
 
@@ -183,7 +191,8 @@ for i in range(1, 21):
             best_params["dense_neurons"],
             best_params["dropout"],
             best_params["learning_rate"],
-            number_of_labels)
+            num_labels)
 
         decision_threshold = best_params["decision_threshold"]
-        save_results(model, historic, X_test, y_test, number_of_labels, i, decision_threshold, mlp_output_dir, neural_network_type)
+        save_results(model, historic, X_test, y_test, num_labels,
+                     i, decision_threshold, mlp_output_dir, neural_network_type)
