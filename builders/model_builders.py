@@ -204,9 +204,14 @@ def save_results(model, historic, X_test, y_test, number_of_labels, i, decision_
 def cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val, 
                        filter_size, kernel_size, num_layers, num_dense_layers, dense_neurons,
                        dropout, learning_rate, number_of_labels):
+    
+    
+    print("Input:", input_shape)
+    print("X_train:", X_train.shape)
     max_pool = 2
     model = Sequential()
     for i in range(num_layers):
+        
         if i == 0:
             model.add(Conv1D(filters=filter_size, kernel_size=kernel_size,
                       activation="relu", input_shape=input_shape))
@@ -215,6 +220,7 @@ def cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val,
                 filter_size = kernel_size
             filter_size *= 2
             model.add(Conv1D(filters=filter_size, kernel_size=kernel_size, activation="relu"))
+
         model.add(MaxPooling1D(pool_size=max_pool))
         model.add(Dropout(dropout))
 
@@ -228,10 +234,11 @@ def cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val,
     optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy', metrics=['accuracy'])
+    
+    model.summary()
 
     historic = model.fit(X_train, y_train, batch_size=32,
-                         epochs=25, validation_data=(X_val, y_val), verbose=1)
-
+                         epochs=25, validation_data=(X_val, y_val), verbose=0)
     return model, historic
 
 
