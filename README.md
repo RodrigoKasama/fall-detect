@@ -28,6 +28,11 @@ Hiperparametros de MLP:
 
 
 ## Etapa 1
+ De acordo com a entrada via CLI define o cenário a ser treinado. 
+	- Tamanho do 'data_array' (Tam. do janelamento?)
+	- Nome do arquivo que contem o dataset
+	- Nome do arquivo que contem os rótulos
+	- Numero de targets (37, 26 ou 2)
  - Definir os melhores hiperparametros da rede neural baseados em um dataset de validação - Otimização Bayesiana
 
 

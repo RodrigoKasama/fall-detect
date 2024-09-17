@@ -10,7 +10,8 @@ def generate_datasets(data: str = None, label: str = None):
     # Carregando os dados e os targuets
     X = np.load(data)
     y = np.load(label)
-
+    
+    # Convertendo para tensores
     X = torch.from_numpy(X)
     y = torch.from_numpy(y)
 
@@ -129,7 +130,6 @@ def collect_datasets_from_input(position, target_type, scenario, neural_network_
     data_filename, input_shape = set_data_filename_and_shape_input(
         data_dir=data_dir, array_size=array_size, scenario=scenario, neural_network_type=neural_network_type)
 
-    X_train, y_train, X_val, y_val, X_test, y_test = generate_datasets(
-        data_filename, label_path)
+    X_train, y_train, X_val, y_val, X_test, y_test = generate_datasets(data_filename, label_path)
 
     return input_shape, label_size, X_train, y_train, X_val, y_val, X_test, y_test
