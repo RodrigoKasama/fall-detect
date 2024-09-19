@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
@@ -28,11 +29,12 @@ class CNN1D(nn.Module):
         
         last_layer_channels = 0
         dense_neurons = first_dense_layer_size
-        dense_layer_droprate = 3
+        dense_layer_droprate = 4
         
+        # Para cada seq de (Conv1d + ReLU + MaxPool1d + Dropout)
         for i in range(n_conv_layers):
 
-            # PARA CONV1D: Se pading = 0 e stride = 1 |-> [batch, j, k] -> [batch, new_j, k - kernel + 1]
+            # PARA CONV1D: Se pading = 0 e stride = 1 |-> [batch, j, k] -> [batch, j*2, k - kernel + 1]
             if i == 0:
                 self.conv_layer.append(nn.Conv1d(1, first_conv_layer_size, self.kernel_size))
                 last_layer_channels = first_conv_layer_size
@@ -42,28 +44,31 @@ class CNN1D(nn.Module):
                 last_layer_channels *= 2
 
             self.conv_layer.append(nn.ReLU())
+            
             # PARA MAXPOOL: Divide a metade |-> [batch, j, k] -> [batch, j, k/2]
             self.conv_layer.append(nn.MaxPool1d(self.max_pool))
-            self.conv_layer.append(nn.Dropout(self.dropout_rate))
             
+            self.conv_layer.append(nn.Dropout(self.dropout_rate))
+        
+        # Camada Flatten
         self.flatten = nn.Flatten()
         
         # Simula n sequencias de (Conv1d(kenrnel_size) + MaxPool1D(max_pool)) e retorna o numero de features após essas operações
         last_layer_features = self.get_feature_size(n_conv_layers, n_features_init)
 
         # Calcular com quantos neuronios a 1ª camada densa deve ter -> nº de canais * nº de features da última camada
-        self.first_dense_in = last_layer_channels * last_layer_features
+        self.first_dense_input = last_layer_channels * last_layer_features
         
         self.fc_layers = nn.ModuleList()
         for i in range(num_dense_layers):
             if i == 0:
-                self.fc_layers.append(nn.Linear(self.first_dense_in, dense_neurons))
+                self.fc_layers.append(nn.Linear(self.first_dense_input, dense_neurons))
             else:
                 self.fc_layers.append(nn.Linear(dense_neurons, dense_neurons//dense_layer_droprate))
                 dense_neurons //= dense_layer_droprate
             self.fc_layers.append(nn.ReLU())
 
-        # Output Layer (softmax)
+        # Output Layer
         self.output_layer = nn.Linear(dense_neurons, num_labels)
 
     def get_feature_size(self, k, init_val):
@@ -76,7 +81,7 @@ class CNN1D(nn.Module):
 
     def forward(self, x):
         # print("Input:", x.shape)
-        print()
+        # print()
         for layer in self.conv_layer:
             x = layer(x)
             # if layer._get_name() in ("Conv1d", "MaxPool1d"):
@@ -92,16 +97,16 @@ class CNN1D(nn.Module):
             # if fc_layer._get_name() in ("Linear"):
             #     print(fc_layer._get_name(), x.shape)
                 
-        print()
+        # print()
         x = self.output_layer(x)
         # print("Output:", x.shape)
-        
-        x = torch.argmax(x, dim=1)
+        x = torch.softmax(x, dim=1)
+        # x = torch.argmax(x, dim=1)
         # print("Argmax:", x.shape)
         return x
 
 
-def fit(epochs, lr, model, train_dl, val_dl, opt_func=torch.optim.SGD):
+def fit(epochs, lr, model, train_dl, val_dl, criterion, opt_func=torch.optim.SGD):
 
     # to track the training loss as the model trains
     train_losses = []
@@ -112,7 +117,6 @@ def fit(epochs, lr, model, train_dl, val_dl, opt_func=torch.optim.SGD):
     # to track the average validation loss per epoch as the model trains
     avg_valid_losses = []
 
-    criterion = nn.BCEWithLogitsLoss()
     optimizer = opt_func(model.parameters(), lr)
     for epoch in range(epochs):
 
@@ -121,15 +125,13 @@ def fit(epochs, lr, model, train_dl, val_dl, opt_func=torch.optim.SGD):
         ###################
         model.train()  # prep model for training
         for data, target in train_dl:
-            print("Gabarito:", target)
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
-            # forward pass: compute predicted outputs by passing inputs to the model
+            # Forward pass: compute predicted outputs by passing inputs to the model
             output = model(data.float())
 
-            print("Saida:", output)
             # calculate the loss
-            loss = criterion(output, target.float())
+            loss = criterion(output, target)
 
             # backward pass: compute gradient of the loss with respect to model parameters
             loss.backward()
@@ -146,7 +148,7 @@ def fit(epochs, lr, model, train_dl, val_dl, opt_func=torch.optim.SGD):
             # forward pass: compute predicted outputs by passing inputs to the model
             output = model(data.float())
             # calculate the loss
-            loss = criterion(output, target.float())
+            loss = criterion(output, target)
             # record validation loss
             valid_losses.append(loss.item())
 
@@ -183,18 +185,23 @@ y = torch.from_numpy(y)
 
 print("Dataset:", X.shape, y.shape)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=500, random_state=42)
 # 30% + 30% para validação e teste
-X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=250, random_state=42)
 
 X_train = torch.permute(X_train, (0, 2, 1))
 X_val = torch.permute(X_val, (0, 2, 1))
 X_test = torch.permute(X_test, (0, 2, 1))
 
 print("Datasets Pivotados")
-print("Treinamento:", X_train.shape)
-print("Validação:", X_val.shape)
-print("Teste:", X_test.shape)
+print("Treinamento:", X_train.shape, X_train.dtype)
+print("Validação:", X_val.shape, X_val.dtype)
+print("Teste:", X_test.shape, X_test.dtype)
+
+print("Labels:")
+print("Treinamento:", y_train.shape, y_train.dtype)
+print("Validação:", y_val.shape, y_val.dtype)
+print("Teste:", y_test.shape, y_test.dtype)
 
 train_ds = TensorDataset(X_train, y_train)
 val_ds = TensorDataset(X_val, y_val)
@@ -206,21 +213,41 @@ val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
 model = CNN1D(
     # Comprimento das features
-    n_features_init=1020,
+    n_features_init=1020, # Representa 5s de registros de movimentos no peito (450 para os punhos)
     # 'n_conv_layers' Sessões de convolução que duplica o nº de canais a partir da 2ª camada 
-    n_conv_layers=2,
+    n_conv_layers=1,
     first_conv_layer_size=25,
     # 'n_conv_layers' Sessões de camadas densas que reduzem em 30% o nº de canais a partir da 2ª camada 
-    num_dense_layers=4,
-    first_dense_layer_size=10000,
-    num_labels=2
+    num_dense_layers=1,
+    first_dense_layer_size=6000,
+    num_labels=2 # A depender de uma classificação binária ou multiclasse
 )
-print("-"*90)
-print(model)
-print("-"*90)
 
-# print(model(a))
-# # exit(0)
+# print("-"*90)
+# print(model)
+# print("-"*90)
 
-model, _, _ = fit(100, 0.001, model, train_dl, val_dl)
+epochs = 100
+loss_fn = nn.CrossEntropyLoss()
+learning_rate = 0.0001
 
+model, train_loss, valid_loss = fit(epochs, learning_rate, model, train_dl, val_dl,loss_fn)
+
+
+# Extract function from 
+fig = plt.figure(figsize=(10,8))
+plt.plot(range(1,len(train_loss)+1), train_loss, label='Training Loss')
+plt.plot(range(1,len(valid_loss)+1), valid_loss,label='Validation Loss')
+
+plt.xlabel('epochs')
+plt.ylabel('loss')
+plt.xlim(0, len(train_loss)+1)
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+# plt.show()
+fig.savefig('loss_plot.png', bbox_inches='tight')
+
+# Reduzir lr e criar amostragem 
+# Plottagem de gráficos
+# BCELoss
