@@ -1,37 +1,11 @@
 from torch.utils.data import DataLoader, TensorDataset
 import os
-import optuna
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import csv
-
-import matplotlib.pyplot as plt
-
-from sklearn.metrics import matthews_corrcoef
-
 import numpy as np
 from training_imports import *
 
 BATCH_SIZE = 32
-
-
-def plot_loss_curve(train_loss: list, valid_loss: list, image_dir: str = "./", filename: str = "plot_loss_curve"):
-    import os
-    fig = plt.figure(figsize=(10, 8))
-    plt.plot(range(1, len(train_loss)+1), train_loss, label="Training Loss")
-    plt.plot(range(1, len(valid_loss)+1), valid_loss, label="Validation Loss")
-
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.xlim(0, len(train_loss)+1)
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    path = os.path.join(image_dir, filename)
-    fig.savefig(path, bbox_inches="tight")
-
 
 class CNN1D(nn.Module):
     def __init__(self, n_features_init, n_conv_layers, first_conv_layer_size,  num_dense_layers, first_dense_layer_size,  num_labels):
@@ -205,192 +179,79 @@ def fit(epochs, lr, model, train_dl, val_dl, criterion, opt_func=torch.optim.SGD
     return model, avg_train_losses, avg_valid_losses
 
 
-def create_study_object(objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, neural_network_results_dir, number_of_labels, batch_size, training_epochs=25):
-
-    study = optuna.create_study(direction="maximize")
-    # Fará chamadas da função
-    study.optimize(lambda trial: objective(trial, input_shape, X_train, y_train, X_val,
-                                           y_val, neural_network_type, neural_network_results_dir, number_of_labels, training_epochs, batch_size), n_trials=5)
-
-    best_trial = study.best_trial
-    best_params = best_trial.params
-
-    return best_trial, best_params
-
-
-def objective(trial, input_shape, X_train, y_train, X_val, y_val, neural_network_type, output_dir, number_of_labels, training_epochs, batch_size):
-
-    mcc = None
-
-    if neural_network_type == "CNN1D":
-
-        # Fixando momentaneamente os hiperparâmetros
-        filter_size = 50
-        kernel_size = 5
-        num_layers = 3
-        num_dense_layers = 2
-        dense_neurons = 100
-        dropout = 0.3
-        learning_rate = 0.0001
-        decision_threshold = 0.5
-
-        # Criando a arquitetura da rede neural de acordo com os hiperparametros e retornando um modelo treinado
-        model, historic = cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val, filter_size,
-                                             kernel_size, num_layers, num_dense_layers, dense_neurons, dropout, learning_rate, number_of_labels, training_epochs, batch_size)
-
-        # SUSPEITA DE DATA LEAKAGE - O modelo treina com os dados de treinamento e validação. Após é coletado o mcc com base novamente nos dados de validaçãp
-        # Coleta a predição do modelo
-        y_pred_prob = model.predict(X_val)
-
-        # Coleta com o threshold alterado
-        y_pred = (y_pred_prob[:, 1] >= decision_threshold).astype(int)
-        mcc = matthews_corrcoef(y_val.argmax(axis=1), y_pred)
-
-        optimized_params = {
-            "filter_size": filter_size,
-            "kernel_size": kernel_size,
-            "num_layers": num_layers,
-            "num_dense_layers": num_dense_layers,
-            "dense_neurons": dense_neurons,
-            "dropout": dropout,
-            "learning_rate": learning_rate,
-            "decision_threshold": decision_threshold
-        }
-
-        # Registra o score do conj de hiperparametros
-        file_path = os.path.join(output_dir, "optimization_results.csv")
-        file_exists = os.path.isfile(file_path)
-
-        with open(file_path, "a", newline="") as csvfile:
-
-            fieldnames = ["Trial", "MCC"] + list(optimized_params.keys())
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-            if not file_exists:
-                writer.writeheader()
-
-                row = {"Trial": trial.number, "MCC": mcc}
-                row.update(optimized_params)
-                writer.writerow(row)
-
-    return mcc
-
-
-def cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val, filter_size, kernel_size, num_layers, num_dense_layers, dense_neurons, dropout, learning_rate, number_of_labels, training_epochs, batch_size):
-
-    # print(X_train.)
-    print("X_train original", X_train)
-    print("Shape Original:", X_train.shape)
-
-    a = torch.permute(X_train, (0, 2, 1))
-    print()
-    print("X_train", a)
-    print("X_train pivotado", a.shape)
-
-    input()
-    X_train = torch.permute(X_train, (0, 2, 1))
-    X_val = torch.permute(X_val, (0, 2, 1))
-
-    train_ds = TensorDataset(X_train, y_train)
-    val_ds = TensorDataset(X_val, y_val)
-
-    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=False)
-    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-
-    model = CNN1D(input_shape=input_shape, filter_size=filter_size, kernel_size=kernel_size, num_layers=num_layers,
-                  num_dense_layers=num_dense_layers, dense_neurons=dense_neurons, dropout=dropout, number_of_labels=number_of_labels)
-
-    print(model)
-    # input()
-    # Retorna um modelo treinado
-    model = fit(model, X_train, y_train, X_val, y_val,
-                learning_rate, nn.CrossEntropyLoss, training_epochs)
-    return model
-
-
 if __name__ == "__main__":
+    
+    current_directory = os.path.dirname(__file__)
+    
+    # Nº de Epochs
+    epochs = 50
+    # Função de Custo - BCELoss()??
+    loss_fn = nn.CrossEntropyLoss()
+    # Taxa de Aprendizagem
+    learning_rate = 0.0001
 
     position, label_type, scenario, neural_network_type = parse_input()
-
-    # Melhorar
-    current_directory = os.path.dirname(__file__)
-
+    
     output_dir = os.path.join(current_directory, "output")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+        
+    neural_network_results_dir = os.path.join(output_dir, neural_network_type)
+    if neural_network_type == "CNN1D":
+        neural_network_results_dir = os.path.join(neural_network_results_dir, position)
+        
+    if not os.path.exists(neural_network_results_dir):
+        os.makedirs(neural_network_results_dir)
 
-    # Diretórios dos datasets. X-> data/{position}/filename
-    # Diretórios dos targets. X-> labels/{position}/filename
-    data_dir = os.path.join(
-        current_directory, "labels_and_data", "data", position)
-    label_dir = os.path.join(
-        current_directory, "labels_and_data", "labels", position)
+    # Diretórios dos datasets e tragets. position -> labels_and_data/data/{position}/filename.npy
+    data_dir = os.path.join(current_directory, "labels_and_data", "data", position)
+    label_dir = os.path.join(current_directory, "labels_and_data", "labels", position)
 
     input_shape, num_labels, X_train, y_train, X_val, y_val, X_test, y_test, = collect_datasets_from_input(
         position, label_type, scenario, neural_network_type, label_dir, data_dir)
-
-    # neural_network_results_dir = os.path.join(output_dir, neural_network_type)
-    # if neural_network_type == "CNN1D":
-    #     neural_network_results_dir = os.path.join(
-    #         neural_network_results_dir, position)
-
-    # if not os.path.exists(neural_network_results_dir):
-    #     os.makedirs(neural_network_results_dir)
-
-    # scenario_dir = os.path.join(
-    #     neural_network_results_dir, scenario, label_type)
-    # if not os.path.exists(scenario_dir):
-    #     os.makedirs(scenario_dir)
-        
+    
+    # Coleta de uma pequena amostra do dataset paratreinamento parcial
     X_train, y_train = X_train[0:100], y_train[0:100]
     X_val, y_val = X_val[0:150], y_val[0:150]
     
-    
-    # # Criaçao da tarefa de otimização. objective ==> função objective que treina a rede neural com um conj de hiperparametros e retorna um "score" (mcc)
+    # Criaçao da tarefa de otimização. objective ==> função objective que treina a rede neural com um conj de hiperparametros e retorna um "score" (mcc)
     # create_study_object(objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, scenario_dir, num_labels, batch_size=32, training_epochs=25)
-    X_train = torch.permute(X_train, (0, 2, 1))
-    X_val = torch.permute(X_val, (0, 2, 1))
-    X_test = torch.permute(X_test, (0, 2, 1))
+    
+    print("Datasets Pivotados | Labels")
+    print(f"Treinamento: {X_train.shape} ({X_train.dtype}) | {y_train.shape} ({y_train.dtype})")
+    print(f"Validação: {X_val.shape} ({X_val.dtype}) | {y_val.shape} ({y_val.dtype})")
+    print(f"Teste: {X_test.shape} ({X_test.dtype}) | {y_test.shape} ({y_test.dtype})")
 
-    print("Datasets Pivotados")
-    print("Treinamento:", X_train.shape, X_train.dtype)
-    print("Validação:", X_val.shape, X_val.dtype)
-    print("Teste:", X_test.shape, X_test.dtype)
-
-    print("Labels:")
-    print("Treinamento:", y_train.shape, y_train.dtype)
-    print("Validação:", y_val.shape, y_val.dtype)
-    print("Teste:", y_test.shape, y_test.dtype)
-
+	# Formação dos batches a partir dos datasets
     train_ds = TensorDataset(X_train, y_train)
     val_ds = TensorDataset(X_val, y_val)
-
     train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=False)
     val_dl = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 
+	# Definição da Rede Neural - Parametrizar
+	# Inicialmente só trata de univariável
     model = CNN1D(
         # Comprimento das features
-        # Representa 5s de registros de movimentos no peito (450 para os punhos)
-        n_features_init=1020,
+        # Representa 5s de registros de movimentos (450 para os punhos, 1020 para o peito)
+        n_features_init=input_shape[0],
         # "n_conv_layers" Sessões de convolução que duplica o nº de canais a partir da 2ª camada
         n_conv_layers=1,
         first_conv_layer_size=25,
         # "n_conv_layers" Sessões de camadas densas que reduzem em 30% o nº de canais a partir da 2ª camada
         num_dense_layers=1,
         first_dense_layer_size=6000,
-        num_labels=2  # A depender de uma classificação binária ou multiclasse
+        num_labels=num_labels  # A depender de uma classificação binária ou multiclasse
     )
-
+    
+	# DEBUG
     # print("-"*90)
     # print(model)
     # print("-"*90)
-
-    epochs = 100
-    loss_fn = nn.CrossEntropyLoss()
-    learning_rate = 0.0001
-
-    model, train_loss, valid_loss = fit(
-        epochs, learning_rate, model, train_dl, val_dl, loss_fn)
-
-
-    plot_loss_curve(train_loss, valid_loss)
+    
+	# Treinamento própriamente dito
+    model, train_loss, valid_loss = fit(epochs, learning_rate, model, train_dl, val_dl, loss_fn)
+    
+    # Plotagem do gráfico de perda
+    category = "binary" if num_labels == 2 else "multiclass"
+    plot_loss_curve(train_loss, valid_loss, neural_network_results_dir, f"CNN1D_classificator_{position}_{category}")
+    print(f"Gráfico de Perda gerado com sucesso. (Verifique o diretório {neural_network_results_dir})")

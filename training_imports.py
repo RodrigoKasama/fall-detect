@@ -1,7 +1,10 @@
 import os
+import optuna
+import csv
 import torch
 import numpy as np
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
 import argparse
 
@@ -16,11 +19,14 @@ def generate_datasets(data: str = None, label: str = None):
     y = torch.from_numpy(y)
 
     # 40% para treinamento
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.4, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
     # 30% + 30% para validação e teste
-    X_test, X_val, y_test, y_val = train_test_split(
-        X_test, y_test, test_size=0.5, random_state=42)
+    X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+    
+    # É necessário "pivotar" o datset devido a forma como o pytorch interpreta as camadas dos tensores ([batch, features, passo_de tempo])
+    X_train = torch.permute(X_train, (0, 2, 1))
+    X_val = torch.permute(X_val, (0, 2, 1))
+    X_test = torch.permute(X_test, (0, 2, 1))
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
@@ -133,3 +139,120 @@ def collect_datasets_from_input(position, target_type, scenario, neural_network_
     X_train, y_train, X_val, y_val, X_test, y_test = generate_datasets(data_filename, label_path)
 
     return input_shape, label_size, X_train, y_train, X_val, y_val, X_test, y_test
+
+def plot_loss_curve(train_loss: list, valid_loss: list, image_dir: str = "./", filename: str = "plot_loss_curve"):
+    import os
+    fig = plt.figure(figsize=(10, 8))
+    plt.plot(range(1, len(train_loss)+1), train_loss, label="Training Loss")
+    plt.plot(range(1, len(valid_loss)+1), valid_loss, label="Validation Loss")
+
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.xlim(0, len(train_loss)+1)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    path = os.path.join(image_dir, filename)
+    fig.savefig(path, bbox_inches="tight")
+
+# Funções não utilizadas voltadas p otimização de hiperparametros
+def create_study_object(objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, neural_network_results_dir, number_of_labels, batch_size, training_epochs=25):
+
+    study = optuna.create_study(direction="maximize")
+    # Fará chamadas da função
+    study.optimize(lambda trial: objective(trial, input_shape, X_train, y_train, X_val,
+                                           y_val, neural_network_type, neural_network_results_dir, number_of_labels, training_epochs, batch_size), n_trials=5)
+
+    best_trial = study.best_trial
+    best_params = best_trial.params
+
+    return best_trial, best_params
+
+def objective(trial, input_shape, X_train, y_train, X_val, y_val, neural_network_type, output_dir, number_of_labels, training_epochs, batch_size):
+	from sklearn.metrics import matthews_corrcoef
+
+	mcc = None
+
+	if neural_network_type == "CNN1D":
+
+		# Fixando momentaneamente os hiperparâmetros
+		filter_size = 50
+		kernel_size = 5
+		num_layers = 3
+		num_dense_layers = 2
+		dense_neurons = 100
+		dropout = 0.3
+		learning_rate = 0.0001
+		decision_threshold = 0.5
+
+		# Criando a arquitetura da rede neural de acordo com os hiperparametros e retornando um modelo treinado
+		model, historic = cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val, filter_size,
+							kernel_size, num_layers, num_dense_layers, dense_neurons, dropout, learning_rate, number_of_labels, training_epochs, batch_size)
+
+		# SUSPEITA DE DATA LEAKAGE - O modelo treina com os dados de treinamento e validação. Após é coletado o mcc com base novamente nos dados de validaçãp
+		# Coleta a predição do modelo
+		y_pred_prob = model.predict(X_val)
+
+		# Coleta com o threshold alterado
+		y_pred = (y_pred_prob[:, 1] >= decision_threshold).astype(int)
+		mcc = matthews_corrcoef(y_val.argmax(axis=1), y_pred)
+
+		optimized_params = {
+		"filter_size": filter_size,
+		"kernel_size": kernel_size,
+		"num_layers": num_layers,
+		"num_dense_layers": num_dense_layers,
+		"dense_neurons": dense_neurons,
+		"dropout": dropout,
+		"learning_rate": learning_rate,
+		"decision_threshold": decision_threshold
+		}
+
+		# Registra o score do conj de hiperparametros
+		file_path = os.path.join(output_dir, "optimization_results.csv")
+		file_exists = os.path.isfile(file_path)
+
+		with open(file_path, "a", newline="") as csvfile:
+
+			fieldnames = ["Trial", "MCC"] + list(optimized_params.keys())
+			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+			if not file_exists:
+				writer.writeheader()
+
+			row = {"Trial": trial.number, "MCC": mcc}
+			row.update(optimized_params)
+			writer.writerow(row)
+
+	return mcc
+
+def cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val, filter_size, kernel_size, num_layers, num_dense_layers, dense_neurons, dropout, learning_rate, number_of_labels, training_epochs, batch_size):
+
+    # print(X_train.)
+    print("X_train original", X_train)
+    print("Shape Original:", X_train.shape)
+
+    a = torch.permute(X_train, (0, 2, 1))
+    print()
+    print("X_train", a)
+    print("X_train pivotado", a.shape)
+
+    input()
+    X_train = torch.permute(X_train, (0, 2, 1))
+    X_val = torch.permute(X_val, (0, 2, 1))
+
+    train_ds = TensorDataset(X_train, y_train)
+    val_ds = TensorDataset(X_val, y_val)
+
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=False)
+    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+
+    model = CNN1D(input_shape=input_shape, filter_size=filter_size, kernel_size=kernel_size, num_layers=num_layers,
+                  num_dense_layers=num_dense_layers, dense_neurons=dense_neurons, dropout=dropout, number_of_labels=number_of_labels)
+
+    print(model)
+    # input()
+    # Retorna um modelo treinado
+    model = fit(model, X_train, y_train, X_val, y_val,
+                learning_rate, nn.CrossEntropyLoss, training_epochs)
+    return model
