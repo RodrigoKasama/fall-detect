@@ -4,3 +4,5 @@ Dockerfile
 database/
 labels_and_data/
 output/
+*.csv
+__pycache__/

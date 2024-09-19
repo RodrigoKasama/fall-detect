@@ -221,27 +221,30 @@ def cnn1d_architecture(input_shape, X_train, y_train, X_val, y_val, filter_size,
 
 
     # print(X_train.)
-    # print("X_train original", X_train[0], X_train[0].shape)
-    # a = torch.permute(X_train, (0, 2, 1))
-    # print()
-    # print("X_train redimensionado", a[0], a[0].shape)
+    print("X_train original", X_train)
+    print("Shape Original:", X_train.shape)
     
+    a = torch.permute(X_train, (0, 2, 1))
+    print()
+    print("X_train", a)
+    print("X_train pivotado", a.shape )
+    
+    input()
     X_train = torch.permute(X_train, (0, 2, 1))
     X_val = torch.permute(X_val, (0, 2, 1))
     
-    # train_ds = TensorDataset(X_train, y_train)
-    # val_ds = TensorDataset(X_val, y_val)
+    train_ds = TensorDataset(X_train, y_train)
+    val_ds = TensorDataset(X_val, y_val)
 
-    # train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=False)
-    # val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=False)
+    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
     
     model = CNN1D(input_shape=input_shape, filter_size=filter_size, kernel_size=kernel_size, num_layers=num_layers, num_dense_layers=num_dense_layers, dense_neurons=dense_neurons, dropout=dropout, number_of_labels=number_of_labels)
-    
     
     print(model)
     # input()
     # Retorna um modelo treinado
-    model = fit(model, X_train, y_train, X_val, y_val, learning_rate, optim.Adam, nn.CrossEntropyLoss, training_epochs)
+    model = fit(model, X_train, y_train, X_val, y_val, learning_rate, nn.CrossEntropyLoss, training_epochs)
     return model
 
 
