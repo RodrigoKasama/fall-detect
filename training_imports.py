@@ -32,39 +32,49 @@ def generate_datasets(data: str = None, label: str = None):
 
 def parse_input():
     parser = argparse.ArgumentParser(
-        description="Script for Bayesian optimization and model training")
+        description="Script for model training")
     parser.add_argument(
         "-s", "--scenario",
         type=str,
         choices=[
-            "Sc1_acc_T", "Sc1_gyr_T", "Sc1_acc_F", "Sc1_gyr_F",
-            "Sc_2_acc_T", "Sc_2_gyr_T", "Sc_2_acc_F", "Sc_2_gyr_F",
-            "Sc_3_T", "Sc_3_F", "Sc_4_T", "Sc_4_F"
+            # Cenários sem transformada de fourier
+            # Univariada
+            "Sc1_acc_T", "Sc1_gyr_T", 
+            # Multivariada (x, y, z)
+            "Sc_2_acc_T", "Sc_2_gyr_T", 
+            # Multivariada (Aceleração Linear e Angular)
+            "Sc_3_T", 
+            # Multivariada ((x, y, z)-Linear e (x, y, z)-Angular)
+            "Sc_4_T",
+            
+            # Cenários com transformada de fourier
+            "Sc1_acc_F", "Sc1_gyr_F", "Sc_2_acc_F", "Sc_2_gyr_F", "Sc_3_F", "Sc_4_F"
         ],
         required=True,
-        help="Neural network scenario (e.g. Sc1_acc_F, Sc1_gyr_T, etc.)",
+        help="Possiveis Cenários a se trabalhar.\n Cenários com _F referem-se a transformada de fourier entrada, enquanto que _T são leituras sem transformação.",
     )
     parser.add_argument(
         "-p", "--position",
         type=str,
         choices=["left", "chest", "right"],
         required=True,
-        help="Sensor position (left, chest, right)",
+        help="Sensor position",
     )
     parser.add_argument(
         "-l", "--label_type",
         type=str,
-        choices=["multiple_one", "multiple_two",
-                 "binary_one", "binary_two"],
+        choices=["binary_one", "binary_two"],
+        # choices=["multiple_one", "multiple_two","binary_one", "binary_two"],
         required=True,
-        help="Label type (multiple_one, multiple_two, binary_one, binary_two)",
+        help="Type of classification problem Multi/Binary Classes",
     )
     parser.add_argument(
         "-nn", "--neural_network_type",
         type=str,
         choices=["CNN1D", "MLP"],
         required=True,
-        help="Tipo de rede neural (CNN1D ou MLP)",
+        default="CNN1D",
+        help="Tipo de rede neural (CNN1D) **MLP abandonada**",
     )
     args = parser.parse_args()
 
@@ -74,33 +84,29 @@ def set_data_filename_and_shape_input(data_dir, array_size, scenario, neural_net
 
     ###################################################################################################################################
     # Para cada cenário de CNN1D, cria uma lista com o diretório do dado e o shape de entrada
+    
     neural_network_scenarios = {
-        # for Sc1_CNN1D_acc_T and Sc1_MLP_acc_T
+        
+        # Leitura da magnitude (SQRT(x² + y² + z²)) da aceleração linear
         "Sc1_acc_T": [os.path.join(data_dir, "magacc_time_domain_data_array.npy"), (array_size, 1)],
-        # for Sc1_CNN1D_gyr_T and Sc1_MLP_gyr_T
+        # Leitura da magnitude (SQRT(x² + y² + z²)) da aceleração angular
         "Sc1_gyr_T": [os.path.join(data_dir, "maggyr_time_domain_data_array.npy"), (array_size, 1)],
-        # for Sc1_CNN1D_acc_F and Sc1_MLP_acc_F
-        "Sc1_acc_F": [os.path.join(data_dir, "magacc_frequency_domain_data_array.npy"), (int(array_size/2), 1)],
-        # for Sc1_CNN1D_gyr_F and Sc1_MLP_gyr_F
-        "Sc1_gyr_F": [os.path.join(data_dir, "maggyr_frequency_domain_data_array.npy"), (int(array_size/2), 1)],
-
-        # for Sc_2_CNN1D_acc_T and Sc_2_MLP_acc_T
+        # Leitura dos exios (x, y, z) da aceleração linear - > Passa a ter 3 features | Problema multivariado
         "Sc_2_acc_T": [os.path.join(data_dir, "acc_x_y_z_axes_time_domain_data_array.npy"), (array_size, 3)],
-        # for Sc_2_CNN1D_gyr_T and Sc_2_MLP_gyr_T
+        # Leitura dos exios (x, y, z) da aceleração angular - > Passa a ter 3 features | Problema multivariado
         "Sc_2_gyr_T": [os.path.join(data_dir, "gyr_x_y_z_axes_time_domain_data_array.npy"), (array_size, 3)],
-        # for Sc_2_CNN1D_acc_F and Sc_2_MLP_acc_F
-        "Sc_2_acc_F": [os.path.join(data_dir, "acc_x_y_z_axes_frequency_domain_data_array.npy"), (int(array_size/2), 3)],
-        # for Sc_2_CNN1D_gyr_F and Sc_2_MLP_gyr_F
-        "Sc_2_gyr_F": [os.path.join(data_dir, "gyr_x_y_z_axes_frequency_domain_data_array.npy"), (int(array_size/2), 3)],
-
-        # for Sc_3_CNN1D_T and Sc_3_MLP_T
+        # Leitura da magnitude (SQRT(x² + y² + z²)) da aceleração linear e da aceleração angular - > Passa a ter 2 features | Problema multivariado
         "Sc_3_T": [os.path.join(data_dir, "magacc_and_maggyr_time_domain_data_array.npy"), (array_size, 2)],
-        # for Sc_3_CNN1D_F and Sc_3_MLP_F
-        "Sc_3_F": [os.path.join(data_dir, "magacc_and_maggyr_frequency_domain_data_array.npy"), (int(array_size/2), 2)],
-
-        # for Sc_4_CNN1D_T and Sc_4_MLP_T
+        # Leitura dos exios (x, y, z) da aceleração linear E (x, y, z) da aceleração angular - > Passa a ter 6 features | Problema multivariado
         "Sc_4_T": [os.path.join(data_dir, "acc_and_gyr_three_axes_time_domain_data_array.npy"), (array_size, 6)],
-        # for Sc_4_CNN1D_F and Sc_4_MLP_F
+        
+    	# Também foi realizado uma uma transformada de fourier que mostrou-se promissora na classificação 
+     	# - Por conta da caracteristica da transformada, o resultado é uma função espelhada, para resolver esse problema segmentamos a duplicata da transformada
+        "Sc1_acc_F": [os.path.join(data_dir, "magacc_frequency_domain_data_array.npy"), (int(array_size/2), 1)],
+        "Sc1_gyr_F": [os.path.join(data_dir, "maggyr_frequency_domain_data_array.npy"), (int(array_size/2), 1)],
+        "Sc_2_acc_F": [os.path.join(data_dir, "acc_x_y_z_axes_frequency_domain_data_array.npy"), (int(array_size/2), 3)],
+        "Sc_2_gyr_F": [os.path.join(data_dir, "gyr_x_y_z_axes_frequency_domain_data_array.npy"), (int(array_size/2), 3)],
+        "Sc_3_F": [os.path.join(data_dir, "magacc_and_maggyr_frequency_domain_data_array.npy"), (int(array_size/2), 2)],
         "Sc_4_F": [os.path.join(data_dir, "acc_and_gyr_three_axes_frequency_domain_data_array.npy"), (int(array_size/2), 6)],
     }
 
@@ -116,25 +122,24 @@ def set_data_filename_and_shape_input(data_dir, array_size, scenario, neural_net
 def collect_datasets_from_input(position, target_type, scenario, neural_network_type, label_dir, data_dir):
 
     targets_filename_and_size = {
-        # Nume do arquivo dos targets e qunatidade de classes
-        "multiple_one": ("multiple_class_label_1.npy", 37),
-        "multiple_two": ("multiple_class_label_2.npy", 26),
+        # Nume do arquivo dos targets e quantidade de classes
+        "multiple_one": ("multiple_class_label_1.npy", 37), # O problema multiclasse não funciona por enquanto
+        "multiple_two": ("multiple_class_label_2.npy", 26), # O problema multiclasse não funciona por enquanto
         "binary_one": ("binary_class_label_1.npy", 2),
         "binary_two": ("binary_class_label_2.npy", 2),
     }
 
-    # Parece ser o janelamento - Icógnita
+    # Quantidade de leituras a cada 5s -> Passo de tempo
     array_sizes = {"chest": 1020, "right": 450, "left": 450}
 
     label_filename, label_size = targets_filename_and_size.get(target_type)
 
     array_size = array_sizes[position]
 
-    #  O arquivo de rótulos é label_dir + label_filename
+    #  O arquivo de targets é label_dir + label_filename
     label_path = os.path.join(label_dir, label_filename)
 
-    data_filename, input_shape = set_data_filename_and_shape_input(
-        data_dir=data_dir, array_size=array_size, scenario=scenario, neural_network_type=neural_network_type)
+    data_filename, input_shape = set_data_filename_and_shape_input(data_dir, array_size, scenario, neural_network_type)
 
     X_train, y_train, X_val, y_val, X_test, y_test = generate_datasets(data_filename, label_path)
 
