@@ -17,7 +17,7 @@ cd fall-detect/
 pip install -r requirements.txt
 ```
 
-Após instalação dos pacotes necessários, importaremos a base de dados a ser utilizada. Essa a base de dados encontra-se diposnível publicamente [aqui]("https://zenodo.org/records/12760391"). 
+Após instalação dos pacotes necessários, importaremos a base de dados a ser utilizada. Essa a base de dados encontra-se diposnível publicamente [aqui](https://zenodo.org/records/12760391). 
 
 ## Geração dos datasets 
 
