@@ -8,7 +8,7 @@ from training_imports import *
 BATCH_SIZE = 32
 
 class CNN1D(nn.Module):
-    def __init__(self, n_features_init, n_conv_layers, first_conv_layer_size,  num_dense_layers, first_dense_layer_size,  num_labels):
+    def __init__(self, input_shape, n_conv_layers, first_conv_layer_size,  num_dense_layers, first_dense_layer_size,  num_labels):
         super(CNN1D, self).__init__()
 
         # filter_size = 50
@@ -36,7 +36,7 @@ class CNN1D(nn.Module):
             # PARA CONV1D: Se pading = 0 e stride = 1 |-> [batch, j, k] -> [batch, j*2, k - kernel + 1]
             if i == 0:
                 self.conv_layer.append(
-                    nn.Conv1d(1, first_conv_layer_size, self.kernel_size))
+                    nn.Conv1d(input_shape[1], first_conv_layer_size, self.kernel_size))
                 last_layer_channels = first_conv_layer_size
             else:
                 # past_layer_out = self.get_feature_size(i-1, n_channels_init)
@@ -54,9 +54,8 @@ class CNN1D(nn.Module):
         # Camada Flatten
         self.flatten = nn.Flatten()
 
-        # Simula n sequencias de (Conv1d(kenrnel_size) + MaxPool1D(max_pool)) e retorna o numero de features após essas operações
-        last_layer_features = self.get_feature_size(
-            n_conv_layers, n_features_init)
+        # Simula n sequencias de (Conv1d(kenrnel_size) + MaxPool1D(max_pool)), baseado num numero inicial de passos e retorna o numero de features após essas operações
+        last_layer_features = self.get_feature_size(n_conv_layers, input_shape[0])
 
         # Calcular com quantos neuronios a 1ª camada densa deve ter -> nº de canais * nº de features da última camada
         self.first_dense_input = last_layer_channels * last_layer_features
@@ -233,7 +232,7 @@ if __name__ == "__main__":
     model = CNN1D(
         # Comprimento das features
         # Representa 5s de registros de movimentos (450 para os punhos, 1020 para o peito)
-        n_features_init=input_shape[0],
+        input_shape=input_shape,
         # "n_conv_layers" Sessões de convolução que duplica o nº de canais a partir da 2ª camada
         n_conv_layers=1,
         first_conv_layer_size=25,
