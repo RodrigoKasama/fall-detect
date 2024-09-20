@@ -1,6 +1,0 @@
-Converter o notebook de cnn1d para problema de class bin (>30ºC)
-
-Adaptar o otimizador e remodelar o final da redeneural para 2
-
-
-Após isso trabalhar com o dataset do leandro segindo a mesma arquiitetura.

@@ -1,40 +1,41 @@
-Resumo do Projeto;
+# Fall-detect
 
--   Otimização de hiperparametros via optuna
+### Antes de tudo
+Com o objetivo de isolar o projeto, é recomendado a criação de um ambiente virtual do python:
 
-Hiperparametros de CNN1D:
--   filter_size(8~600, log=True)
--   kernel_size(2~6)
--   num_layers(2~4)
--   num_dense_layers(1~3)
--   dense_neurons(60~320, log=True)
--   dropout(.1~.5, step=.1)
--   learning_rate([0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01])
--   decision_threshold(.5~.9, log=True)
--   matthews_corrcoef
+```
+cd fall-detect/
+python3 -m venv nome-do-enviroment
+```
 
+## Importação dos dados
 
-Arquitetura CNN1D:
-- 
+Para execução desse repositório, será necessário utilizar os requisitos descritos no arquivo requirements.txt. É possivel instalar todos os pacotes necessários com o unico comando abaixo:
 
-Hiperparametros de MLP:
-- num_layers,
-- dense_neurons,
-- dropout,
-- learning_rate,
-- decision_threshold
-- matthews_corrcoef
+```
+cd fall-detect/
+pip install -r requirements.txt
+```
 
+Após instalação dos pacotes necessários, importaremos a base de dados a ser utilizada. Essa a base de dados encontra-se diposnível publicamente [aqui]("https://zenodo.org/records/12760391"). 
 
+## Geração dos datasets 
 
-## Etapa 1
- De acordo com a entrada via CLI define o cenário a ser treinado. 
-	- Tamanho do 'data_array' (Tam. do janelamento?)
-	- Nome do arquivo que contem o dataset
-	- Nome do arquivo que contem os rótulos
-	- Numero de targets (37, 26 ou 2)
- - Definir os melhores hiperparametros da rede neural baseados em um dataset de validação - Otimização Bayesiana
+Uma vez com os pacotes necessários instalados e a base de dados baixada e **descompactada**. Será realizado a criação do dataset através do script:
+```
+python3 training_data_generator.py chest
+python3 training_data_generator.py right
+python3 training_data_generator.py left
+```
 
+Uma vez com o dataset de cada modalidade (chest, right e left) criado é possivel seguir para a etapa de treinamento da Rede Neural.
 
-## Etapa 2
- - Efetuar um treinamento com os melhores hiperparâmetros selecionados
+## Treinamento e Plotagem 
+Para o treinamento, execute o script `python3 training.py` com os parâmetros que deseja como **cenários**, **sensor**, **tipo de classificação**, etc. Em caso de dúvidas, verifique a Wiki do Projeto original e a seção de **--help** do script.
+
+Após o treinamento será gerado um grafico, no diretório indicado, para análise do desempenho da rede neural ao longo do treinamento. 
+
+---
+
+#### Observações
+Alguns arquivos presentes no repositório servem apenas como comparação com o projeto original (`run_of_the_neural_network_model.py` ou `model_builders/`) ou auxilio (`commands.txt`).

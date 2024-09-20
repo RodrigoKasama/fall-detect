@@ -30,9 +30,15 @@ def generate_datasets(data: str = None, label: str = None):
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
+
+def check_positive(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"O valor {ivalue} deve ser maior que 0")
+    return ivalue
+
 def parse_input():
-    parser = argparse.ArgumentParser(
-        description="Script for model training")
+    parser = argparse.ArgumentParser(description="Script for model training")
     parser.add_argument(
         "-s", "--scenario",
         type=str,
@@ -51,14 +57,14 @@ def parse_input():
             "Sc1_acc_F", "Sc1_gyr_F", "Sc_2_acc_F", "Sc_2_gyr_F", "Sc_3_F", "Sc_4_F"
         ],
         required=True,
-        help="Possiveis Cenários a se trabalhar.\n Cenários com _F referem-se a transformada de fourier entrada, enquanto que _T são leituras sem transformação.",
+        help="Possiveis Cenários a se trabalhar.Cenários com *_F referem-se a transformada de fourier entrada, enquanto que *_T são leituras sem transformação.\n Cenários com *_acc_* referem-se a leitura de aceleração LINEAR, enquanto que Cenários com *_gyr_* referem-se à leitura de aceleração ANGULAR.",
     )
     parser.add_argument(
         "-p", "--position",
         type=str,
         choices=["left", "chest", "right"],
         required=True,
-        help="Sensor position",
+        help="Referente a qual sensor será utilzado.",
     )
     parser.add_argument(
         "-l", "--label_type",
@@ -72,13 +78,15 @@ def parse_input():
         "-nn", "--neural_network_type",
         type=str,
         choices=["CNN1D", "MLP"],
-        required=True,
         default="CNN1D",
         help="Tipo de rede neural (CNN1D) **MLP abandonada**",
     )
+    parser.add_argument("-c", "--n_conv", type=check_positive, default=1, help="Numero de sequencias de Convolução1D, ReLU, MaxPool1D e Dropout na rede neural")
+    parser.add_argument( "-d", "--n_dense", type=check_positive, default=1, help="Numero de Camadas Densas na rede neural")
+    
     args = parser.parse_args()
 
-    return args.position, args.label_type, args.scenario, args.neural_network_type
+    return args.position, args.label_type, args.scenario, args.neural_network_type, args.n_conv, args.n_dense
 
 def set_data_filename_and_shape_input(data_dir, array_size, scenario, neural_network_type):
 

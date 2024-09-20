@@ -11,7 +11,7 @@ labels_list = [[] for _ in range(4)]
 
 """ EXECUTION OF THE TRAINING DATA GENERATION PROGRAM """
 
-parser = argparse.ArgumentParser(description="Script for generating training data")
+parser = argparse.ArgumentParser(description="Script para geração de datasets e rótulos para cara estratégia de cenários")
 parser.add_argument("position", type=str, choices=["chest", "left", "right"], help="Sensor position")
 args = parser.parse_args()
 position = args.position.upper()
@@ -50,7 +50,6 @@ for i in range(4):
             f"{prefix}_class_label_{sufix}.npy"), np.asarray(labels_list[i]))
 
 """
-# Porque desses pares?
  	# magacc - 0
 		# time_domain
 		# frequency_domain
@@ -101,8 +100,7 @@ for topic, font in {"time": data_arrays_time_domain, "frequency": data_arrays_fr
     # 123567 - acc_and_gyr_three_axes
     np.save(os.path.join(data_array_directory, f"acc_and_gyr_three_axes_{topic}_domain_data_array.npy"),
             np.concatenate((
-                np.asarray(font[1]), np.asarray(font[2]),
-                np.asarray(font[3]), np.asarray(font[5]),
-                np.asarray(font[6]), np.asarray(font[7])),
+                np.asarray(font[1]), np.asarray(font[2]), np.asarray(font[3]),
+                np.asarray(font[5]), np.asarray(font[6]), np.asarray(font[7])),
             axis=2))
-print("Finalizado. Dados de treinamento disponíveis.")
+print(f"Finalizado. Dados de treinamento disponíveis em {os.path.join(current_directory, 'labels_and_data')}")

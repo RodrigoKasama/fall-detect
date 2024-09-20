@@ -1,8 +1,6 @@
 numpy
 matplotlib
 scikit-learn
-keras
 optuna
 pandas
-
 torch

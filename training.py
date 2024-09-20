@@ -7,6 +7,7 @@ from training_imports import *
 
 BATCH_SIZE = 32
 
+
 class CNN1D(nn.Module):
     def __init__(self, input_shape, n_conv_layers, first_conv_layer_size,  num_dense_layers, first_dense_layer_size,  num_labels):
         super(CNN1D, self).__init__()
@@ -21,11 +22,11 @@ class CNN1D(nn.Module):
         # decision_threshold = 0.5
 
         self.conv_layer = nn.ModuleList()
-
+        # Hiperparametros definidos de forma fixa
         self.kernel_size = 3
-        self.max_pool = 2
         self.dropout_rate = 0.3
 
+        self.max_pool = 2
         last_layer_channels = 0
         dense_neurons = first_dense_layer_size
         dense_layer_droprate = 4
@@ -43,19 +44,20 @@ class CNN1D(nn.Module):
                 self.conv_layer.append(
                     nn.Conv1d(last_layer_channels, last_layer_channels*2, self.kernel_size))
                 last_layer_channels *= 2
-
+            # Relu não altera as dimensoes do tensor - Função de Ativação
             self.conv_layer.append(nn.ReLU())
 
             # PARA MAXPOOL: Divide a metade |-> [batch, j, k] -> [batch, j, k/2]
             self.conv_layer.append(nn.MaxPool1d(self.max_pool))
-
+            # Dropout não altera as dimensoes do tensor
             self.conv_layer.append(nn.Dropout(self.dropout_rate))
 
         # Camada Flatten
         self.flatten = nn.Flatten()
 
         # Simula n sequencias de (Conv1d(kenrnel_size) + MaxPool1D(max_pool)), baseado num numero inicial de passos e retorna o numero de features após essas operações
-        last_layer_features = self.get_feature_size(n_conv_layers, input_shape[0])
+        last_layer_features = self.get_feature_size(
+            n_conv_layers, input_shape[0])
 
         # Calcular com quantos neuronios a 1ª camada densa deve ter -> nº de canais * nº de features da última camada
         self.first_dense_input = last_layer_channels * last_layer_features
@@ -165,7 +167,7 @@ def fit(epochs, lr, model, train_dl, val_dl, criterion, opt_func=torch.optim.SGD
 
         epoch_len = len(str(epochs))
 
-        print_msg = (f"[{epoch:>{epoch_len}}/{epochs:>{epoch_len}}] " +
+        print_msg = (f"[{epoch+1:>{epoch_len}}/{epochs:>{epoch_len}}] " +
                      f"train_loss: {train_loss:.5f} " +
                      f"valid_loss: {valid_loss:.5f}")
 
@@ -179,17 +181,24 @@ def fit(epochs, lr, model, train_dl, val_dl, criterion, opt_func=torch.optim.SGD
 
 
 if __name__ == "__main__":
-    
+
+    debug = True
+
     current_directory = os.path.dirname(__file__)
     
     # Nº de Epochs
     epochs = 50
-    # Função de Custo - BCELoss()??
-    loss_fn = nn.CrossEntropyLoss()
     # Taxa de Aprendizagem
     learning_rate = 0.0001
+    
+    # Função de Custo - BCELoss()??
+    loss_fn = nn.CrossEntropyLoss()
+    
+    # Hiperparams definidos de forma arbitrária -> Impactam diretamente na potência e no tempo de treinamento
+    first_conv_layer_size=25
+    first_dense_layer_size=6000
 
-    position, label_type, scenario, neural_network_type = parse_input()
+    position, label_type, scenario, neural_network_type, n_conv_layers, num_dense_layers = parse_input()
     
     output_dir = os.path.join(current_directory, "output")
     if not os.path.exists(output_dir):
@@ -216,7 +225,7 @@ if __name__ == "__main__":
     # Criaçao da tarefa de otimização. objective ==> função objective que treina a rede neural com um conj de hiperparametros e retorna um "score" (mcc)
     # create_study_object(objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, scenario_dir, num_labels, batch_size=32, training_epochs=25)
     
-    print("Datasets Pivotados | Labels")
+    print("Datasets | Labels")
     print(f"Treinamento: {X_train.shape} ({X_train.dtype}) | {y_train.shape} ({y_train.dtype})")
     print(f"Validação: {X_val.shape} ({X_val.dtype}) | {y_val.shape} ({y_val.dtype})")
     print(f"Teste: {X_test.shape} ({X_test.dtype}) | {y_test.shape} ({y_test.dtype})")
@@ -228,29 +237,32 @@ if __name__ == "__main__":
     val_dl = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 
 	# Definição da Rede Neural - Parametrizar
-	# Inicialmente só trata de univariável
     model = CNN1D(
+        
         # Comprimento das features
         # Representa 5s de registros de movimentos (450 para os punhos, 1020 para o peito)
         input_shape=input_shape,
+        
         # "n_conv_layers" Sessões de convolução que duplica o nº de canais a partir da 2ª camada
-        n_conv_layers=1,
-        first_conv_layer_size=25,
+        n_conv_layers=n_conv_layers,
+        first_conv_layer_size=first_conv_layer_size,
+        
         # "n_conv_layers" Sessões de camadas densas que reduzem em 30% o nº de canais a partir da 2ª camada
-        num_dense_layers=1,
-        first_dense_layer_size=6000,
+        num_dense_layers=num_dense_layers,
+        first_dense_layer_size=first_dense_layer_size,
         num_labels=num_labels  # A depender de uma classificação binária ou multiclasse
     )
     
 	# DEBUG
-    # print("-"*90)
-    # print(model)
-    # print("-"*90)
+    if debug:
+        print("-"*90)
+        print(model)
+        print("-"*90)
     
 	# Treinamento própriamente dito
     model, train_loss, valid_loss = fit(epochs, learning_rate, model, train_dl, val_dl, loss_fn)
     
     # Plotagem do gráfico de perda
     category = "binary" if num_labels == 2 else "multiclass"
-    plot_loss_curve(train_loss, valid_loss, neural_network_results_dir, f"CNN1D_classificator_{position}_{category}")
+    plot_loss_curve(train_loss, valid_loss, neural_network_results_dir, f"CNN1D_{category}_{position}_{scenario}.png")
     print(f"Gráfico de Perda gerado com sucesso. (Verifique o diretório {neural_network_results_dir})")

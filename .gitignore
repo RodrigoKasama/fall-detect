@@ -1,8 +1,10 @@
 fall_detect_env/
 builders/__pycache__/
+__pycache__/
 Dockerfile
 database/
 labels_and_data/
 output/
 *.csv
-__pycache__/
+Etapa1_DL05/
+Etapa2/
