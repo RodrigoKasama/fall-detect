@@ -218,12 +218,13 @@ if __name__ == "__main__":
     input_shape, num_labels, X_train, y_train, X_val, y_val, X_test, y_test, = collect_datasets_from_input(
         position, label_type, scenario, neural_network_type, label_dir, data_dir)
     
-    # Coleta de uma pequena amostra do dataset paratreinamento parcial
-    X_train, y_train = X_train[0:100], y_train[0:100]
-    X_val, y_val = X_val[0:150], y_val[0:150]
     
-    # Criaçao da tarefa de otimização. objective ==> função objective que treina a rede neural com um conj de hiperparametros e retorna um "score" (mcc)
-    # create_study_object(objective, input_shape, X_train, y_train, X_val, y_val, neural_network_type, scenario_dir, num_labels, batch_size=32, training_epochs=25)
+    # --------------------------------------------------------------------------------------------------------------------
+    # Coleta de uma pequena amostra do dataset para treinamento parcial
+    # X_train, y_train = X_train[0:100], y_train[0:100]
+    # X_val, y_val = X_val[0:150], y_val[0:150]
+    # --------------------------------------------------------------------------------------------------------------------
+    
     
     print("Datasets | Labels")
     print(f"Treinamento: {X_train.shape} ({X_train.dtype}) | {y_train.shape} ({y_train.dtype})")
